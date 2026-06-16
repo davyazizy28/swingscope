@@ -1,0 +1,41 @@
+name: Update SwingScope data
+
+on:
+  schedule:
+    # Every 30 minutes (UTC). GitHub may delay or skip runs under load — that's fine
+    # for swing trading. Narrow this to market hours later if you want to cut runs.
+    - cron: "*/30 * * * *"
+  workflow_dispatch:        # adds a "Run workflow" button so you can trigger it manually
+
+permissions:
+  contents: write           # lets the action commit the refreshed data.json
+
+concurrency:
+  group: swingscope-data
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build data.json
+        run: python build.py
+
+      - name: Commit if changed
+        run: |
+          git config user.name  "swingscope-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data.json
+          git diff --quiet --staged || git commit -m "data: $(date -u +%FT%TZ)"
+          git push
