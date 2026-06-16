@@ -1,0 +1,9 @@
+{
+  "name": "SwingScope",
+  "short_name": "SwingScope",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0a1628",
+  "theme_color": "#0a1628"
+}

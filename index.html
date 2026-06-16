@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SwingScope">
+<meta name="theme-color" content="#0a1628">
+<title>SwingScope</title>
+<style>
+  :root{
+    --bg:#0a1628; --panel:#0f2038; --panel2:#15294a; --raise:#1b3360;
+    --line:rgba(125,165,215,.14); --line2:rgba(125,165,215,.24);
+    --ink:#eaf1fb; --muted:#8ba2c4; --faint:#5d7398;
+    --cyan:#37d4dd; --cyan-dim:rgba(55,212,221,.14);
+    --buy:#34d399; --watch:#7dd3fc; --hold:#fbbf24; --avoid:#f87171;
+    --shadow:0 12px 40px -18px rgba(0,0,0,.7);
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+    --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--ui);
+    -webkit-font-smoothing:antialiased;overscroll-behavior-y:contain}
+  body{padding-bottom:env(safe-area-inset-bottom)}
+  .wrap{max-width:560px;margin:0 auto;padding:0 14px 64px}
+
+  /* Header */
+  header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,var(--bg) 72%,rgba(10,22,40,.86));
+    backdrop-filter:blur(8px);padding:calc(env(safe-area-inset-top) + 14px) 0 10px;
+    border-bottom:1px solid var(--line)}
+  .hrow{max-width:560px;margin:0 auto;padding:0 14px;display:flex;align-items:center;gap:10px}
+  .mark{width:30px;height:30px;border-radius:8px;background:
+    radial-gradient(120% 120% at 30% 20%,var(--cyan),#1e8f99 70%);position:relative;flex:none;
+    box-shadow:0 0 0 1px rgba(55,212,221,.4),0 6px 18px -6px rgba(55,212,221,.5)}
+  .mark::after{content:"";position:absolute;inset:8px 7px;border-left:2px solid #062;border-bottom:2px solid #062;
+    opacity:.0}
+  .mark span{position:absolute;inset:0;display:grid;place-items:center;font:700 15px/1 var(--mono);color:#04222a}
+  .brand{font-weight:700;letter-spacing:-.3px;font-size:18px}
+  .brand b{color:var(--cyan);font-weight:700}
+  .status{margin-left:auto;display:flex;align-items:center;gap:8px;font:500 11px/1 var(--mono);color:var(--muted)}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--buy);box-shadow:0 0 8px var(--buy)}
+  .dot.demo{background:var(--hold);box-shadow:0 0 8px var(--hold)}
+  .refresh{appearance:none;border:1px solid var(--line2);background:var(--panel);color:var(--ink);
+    width:32px;height:32px;border-radius:9px;display:grid;place-items:center;cursor:pointer}
+  .refresh:active{transform:scale(.94)}
+  .refresh svg{width:16px;height:16px}
+
+  /* Segmented control */
+  .seg{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:11px;
+    padding:4px;margin:14px 0 4px}
+  .seg button{flex:1;appearance:none;border:0;background:transparent;color:var(--muted);
+    font:600 13px var(--ui);padding:8px 6px;border-radius:8px;cursor:pointer;letter-spacing:.1px}
+  .seg button.on{background:var(--raise);color:var(--ink);box-shadow:var(--shadow)}
+
+  .lede{color:var(--faint);font-size:12px;line-height:1.5;margin:12px 2px 4px}
+
+  /* Cards */
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);
+    border-radius:16px;padding:14px;margin-top:12px;box-shadow:var(--shadow);
+    opacity:0;transform:translateY(8px);animation:rise .42s cubic-bezier(.2,.7,.2,1) forwards}
+  @keyframes rise{to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.card{animation:none;opacity:1;transform:none}}
+
+  .top{display:flex;align-items:flex-start;gap:10px}
+  .sym{font:700 19px/1.1 var(--ui);letter-spacing:-.4px}
+  .cls{font:600 9.5px/1 var(--mono);letter-spacing:.6px;text-transform:uppercase;color:var(--muted);
+    border:1px solid var(--line2);padding:3px 6px;border-radius:6px;margin-left:8px;vertical-align:2px}
+  .px{margin-top:3px;font:500 12px var(--mono);color:var(--muted)}
+  .px b{color:var(--ink);font-weight:600}
+  .px .chg.up{color:var(--buy)} .px .chg.dn{color:var(--avoid)}
+  .badge{margin-left:auto;text-align:right;flex:none}
+  .sig{font:800 15px/1 var(--ui);letter-spacing:.3px;padding:8px 11px;border-radius:10px;display:inline-block}
+  .sig.BUY{color:#022;background:var(--buy)}
+  .sig.WATCH{color:#022;background:var(--watch)}
+  .sig.HOLD{color:#1a1404;background:var(--hold)}
+  .sig.AVOID{color:#fff;background:var(--avoid)}
+  .conv{margin-top:5px;font:600 10px/1 var(--mono);color:var(--muted)}
+
+  .rankpill{display:inline-flex;align-items:center;gap:5px;font:600 10px var(--mono);color:var(--cyan);
+    background:var(--cyan-dim);border:1px solid rgba(55,212,221,.3);padding:3px 7px;border-radius:20px;margin-top:8px}
+
+  /* Factor breakdown — the signature element */
+  .factors{margin-top:12px;border-top:1px dashed var(--line2);padding-top:11px;display:grid;gap:7px}
+  .frow{display:grid;grid-template-columns:64px 1fr 42px;align-items:center;gap:8px}
+  .flab{font:600 10.5px var(--ui);color:var(--muted)}
+  .ftrack{height:8px;background:var(--bg);border-radius:5px;position:relative;overflow:hidden;
+    border:1px solid var(--line)}
+  .fmid{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--line2)}
+  .fbar{position:absolute;top:0;bottom:0;border-radius:4px;transition:width .5s ease,left .5s ease}
+  .fbar.pos{background:linear-gradient(90deg,rgba(52,211,153,.5),var(--buy))}
+  .fbar.neg{background:linear-gradient(270deg,rgba(248,113,113,.5),var(--avoid))}
+  .fval{font:600 10.5px var(--mono);text-align:right;color:var(--ink)}
+  .fval.p{color:var(--buy)} .fval.n{color:var(--avoid)}
+
+  /* Sentiment line */
+  .sent{margin-top:11px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px}
+  .vtag{font:700 9.5px var(--mono);letter-spacing:.5px;text-transform:uppercase;padding:3px 7px;border-radius:6px}
+  .vtag.early{color:#022;background:var(--buy)}
+  .vtag.building{color:#022;background:var(--watch)}
+  .vtag.quiet{color:var(--muted);background:var(--panel2);border:1px solid var(--line2)}
+  .vtag.blown{color:#fff;background:var(--avoid)}
+  .sent .stext{font:500 11px var(--ui);color:var(--muted);flex:1;min-width:120px}
+  .sent .stext b{color:var(--ink)}
+
+  /* Trade plan */
+  .plan{margin-top:11px;display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
+    background:var(--line);border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  .cell{background:var(--panel);padding:9px 8px;text-align:center}
+  .cell .k{font:600 8.5px var(--mono);letter-spacing:.5px;text-transform:uppercase;color:var(--faint)}
+  .cell .v{font:700 13px var(--mono);margin-top:3px}
+  .cell.stop .v{color:var(--avoid)} .cell.tgt .v{color:var(--buy)} .cell.rr .v{color:var(--cyan)}
+
+  .why{margin-top:10px;font:500 12px/1.55 var(--ui);color:var(--muted)}
+  .why b{color:var(--ink);font-weight:600}
+
+  details.more{margin-top:9px}
+  details.more summary{list-style:none;cursor:pointer;font:600 11px var(--mono);color:var(--cyan);
+    display:inline-flex;align-items:center;gap:5px}
+  details.more summary::-webkit-details-marker{display:none}
+  details.more[open] summary .car{transform:rotate(90deg)}
+  .car{transition:transform .2s;display:inline-block}
+  .bt{margin-top:9px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .btc{background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:8px;text-align:center}
+  .btc .k{font:600 8px var(--mono);letter-spacing:.4px;text-transform:uppercase;color:var(--faint)}
+  .btc .v{font:700 13px var(--mono);margin-top:3px;color:var(--ink)}
+  .btnote{margin-top:8px;font:500 10.5px/1.5 var(--ui);color:var(--faint)}
+  .rmv{margin-top:10px;appearance:none;border:1px solid var(--line2);background:transparent;color:var(--faint);
+    font:600 10px var(--mono);padding:5px 9px;border-radius:7px;cursor:pointer}
+  .rmv:active{transform:scale(.96)}
+
+  /* Ranking view */
+  .rk{display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--panel);
+    border:1px solid var(--line);border-radius:13px;margin-top:9px}
+  .rk .pos{font:800 16px var(--mono);color:var(--cyan);width:26px;text-align:center;flex:none}
+  .rk .who{flex:1}
+  .rk .who .s{font:700 15px var(--ui)}
+  .rk .who .m{font:500 11px var(--mono);color:var(--muted);margin-top:2px}
+  .rkbar{width:84px;height:6px;border-radius:4px;background:var(--bg);border:1px solid var(--line);
+    position:relative;overflow:hidden;flex:none}
+  .rkbar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#1e8f99,var(--cyan))}
+
+  /* Method view */
+  .mc{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:12px}
+  .mc h3{margin:0 0 8px;font:700 14px var(--ui);letter-spacing:-.2px}
+  .mc h3 .n{color:var(--cyan);font:700 12px var(--mono);margin-right:7px}
+  .mc p{margin:0 0 9px;font:500 12.5px/1.6 var(--ui);color:var(--muted)}
+  .mc p b{color:var(--ink);font-weight:600}
+  .mc code{font:600 11.5px var(--mono);color:var(--cyan);background:var(--bg);padding:1px 5px;border-radius:5px}
+  .wlrow{display:flex;gap:8px;margin-top:12px}
+  .wlrow input{flex:1;background:var(--bg);border:1px solid var(--line2);border-radius:9px;color:var(--ink);
+    font:600 13px var(--mono);padding:10px 12px;outline:none}
+  .wlrow input:focus{border-color:var(--cyan)}
+  .wlrow button{appearance:none;border:0;background:var(--cyan);color:#022;font:700 13px var(--ui);
+    padding:0 16px;border-radius:9px;cursor:pointer}
+  .wlrow button:active{transform:scale(.96)}
+
+  footer{margin-top:22px;padding:14px 4px 0;border-top:1px solid var(--line);
+    font:500 10.5px/1.6 var(--ui);color:var(--faint)}
+  footer b{color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <div class="hrow">
+    <div class="mark"><span>S</span></div>
+    <div class="brand">Swing<b>Scope</b></div>
+    <div class="status">
+      <span class="dot demo" id="modeDot"></span>
+      <span id="modeText">DEMO DATA</span>
+      <button class="refresh" id="refreshBtn" title="Refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="seg">
+    <button data-view="signals" class="on">Signals</button>
+    <button data-view="ranking">Momentum</button>
+    <button data-view="method">Method</button>
+  </div>
+  <div id="app"></div>
+  <footer>
+    <b>SwingScope</b> is a personal, long-only decision-support tool — it organizes data and enforces a rule, it does not predict markets. Signals are not financial advice. Backtested figures use demo price history and cover the technical rules only; the sentiment layer runs live-forward and cannot be cleanly backtested on free data. Past performance never guarantees future results. Size every position so a stop-out costs no more than 1–2% of capital.
+  </footer>
+</div>
+
+<script>
+/* ============================================================
+   SwingScope — long-only swing decision-support engine
+   Data layer is pluggable. DATA_MODE = 'demo' | 'live'.
+   ============================================================ */
+let DATA_MODE = 'demo';      // auto-detects: flips to 'live' when ./data.json is present
+let LIVE = null;             // cached combined feed written by the GitHub Action
+let LAST_UPDATED = null;
+const METALS = ['GLD','SLV','NEM','GOLD','GDX','GDXJ','AEM','PAAS','WPM','SIL'];
+function classify(sym){ return sym.endsWith('.JK') ? 'IDX' : (METALS.includes(sym) ? 'Metal' : 'US'); }
+
+/* ---- Watchlist (demo mode; in live mode the feed's tickers win). cls: US | Metal | IDX ----
+   To persist edits on your hosted copy (outside claude.ai), uncomment
+   the localStorage lines marked PERSIST below. */
+let WATCHLIST = [
+  {sym:'NVDA',    cls:'US',    seed:11,  start:120,  drift:0.0011, vol:0.022},
+  {sym:'AAPL',    cls:'US',    seed:22,  start:190,  drift:0.0004, vol:0.015},
+  {sym:'MSFT',    cls:'US',    seed:33,  start:420,  drift:0.0005, vol:0.014},
+  {sym:'NEM',     cls:'Metal', seed:44,  start:45,   drift:0.0009, vol:0.020},
+  {sym:'GOLD',    cls:'Metal', seed:55,  start:18,   drift:0.0007, vol:0.021},
+  {sym:'GLD',     cls:'Metal', seed:66,  start:215,  drift:0.0008, vol:0.011},
+  {sym:'SLV',     cls:'Metal', seed:77,  start:27,   drift:0.0010, vol:0.018},
+  {sym:'ANTM.JK', cls:'IDX',   seed:88,  start:1600, drift:-0.0006,vol:0.024},
+  {sym:'MDKA.JK', cls:'IDX',   seed:99,  start:2400, drift:-0.0004,vol:0.026},
+  {sym:'BBCA.JK', cls:'IDX',   seed:111, start:9500, drift:-0.0003,vol:0.013},
+];
+// PERSIST: const saved = localStorage.getItem('ss_watchlist'); if(saved) WATCHLIST = JSON.parse(saved);
+
+/* ---------- Indicator math ---------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function sma(v,p){const o=[];for(let i=0;i<v.length;i++){if(i<p-1){o.push(null);continue;}let s=0;for(let j=i-p+1;j<=i;j++)s+=v[j];o.push(s/p);}return o;}
+function ema(v,p){const k=2/(p+1);const o=[];let prev=null;for(let i=0;i<v.length;i++){const x=v[i];if(x==null){o.push(null);continue;}if(prev==null){prev=x;}else{prev=x*k+prev*(1-k);}o.push(prev);}return o;}
+function rsi(c,p=14){const o=Array(c.length).fill(null);if(c.length<p+1)return o;let g=0,l=0;for(let i=1;i<=p;i++){const d=c[i]-c[i-1];if(d>=0)g+=d;else l-=d;}let ag=g/p,al=l/p;o[p]=al===0?100:100-100/(1+ag/al);for(let i=p+1;i<c.length;i++){const d=c[i]-c[i-1];ag=(ag*(p-1)+(d>0?d:0))/p;al=(al*(p-1)+(d<0?-d:0))/p;o[i]=al===0?100:100-100/(1+ag/al);}return o;}
+function macd(c,f=12,s=26,sig=9){const ef=ema(c,f),es=ema(c,s);const line=c.map((_,i)=>(ef[i]!=null&&es[i]!=null)?ef[i]-es[i]:null);const sg=ema(line,sig);const hist=line.map((v,i)=>(v!=null&&sg[i]!=null)?v-sg[i]:null);return{line,sig:sg,hist};}
+function bollinger(c,p=20,m=2){const mid=sma(c,p),up=[],lo=[];for(let i=0;i<c.length;i++){if(i<p-1){up.push(null);lo.push(null);continue;}let s=0;for(let j=i-p+1;j<=i;j++)s+=(c[j]-mid[i])**2;const sd=Math.sqrt(s/p);up.push(mid[i]+m*sd);lo.push(mid[i]-m*sd);}return{mid,up,lo};}
+function atr(h,l,c,p=14){const tr=[];for(let i=0;i<c.length;i++){if(i===0){tr.push(h[i]-l[i]);continue;}tr.push(Math.max(h[i]-l[i],Math.abs(h[i]-c[i-1]),Math.abs(l[i]-c[i-1])));}const o=Array(c.length).fill(null);if(c.length<p+1)return o;let prev=0;for(let i=1;i<=p;i++)prev+=tr[i];prev/=p;o[p]=prev;for(let i=p+1;i<c.length;i++){prev=(prev*(p-1)+tr[i])/p;o[i]=prev;}return o;}
+function roc(c,p){const o=Array(c.length).fill(null);for(let i=p;i<c.length;i++)o[i]=(c[i]/c[i-p]-1)*100;return o;}
+
+/* ---------- Demo data generation ---------- */
+function genOHLC(t){const r=mulberry32(t.seed),n=260,day=86400000,now=Date.now();const o=[];let px=t.start;
+  for(let i=0;i<n;i++){const shk=r()*2-1;const ret=t.drift+t.vol*shk;const op=px,cl=px*(1+ret);
+    const hi=Math.max(op,cl)*(1+Math.abs(t.vol*r()*0.6)),loo=Math.min(op,cl)*(1-Math.abs(t.vol*r()*0.6));
+    o.push({t:now-(n-1-i)*day,o:op,h:hi,l:loo,c:cl,v:Math.round(1e6*(0.5+r()))});px=cl;}return o;}
+function genNews(t){const r=mulberry32(t.seed+777),now=Date.now(),hr=3600000;
+  const tpl=[['{T} beats quarterly estimates',0.62],['Analysts upgrade {T} on demand outlook',0.5],
+    ['{T} guidance raised for next quarter',0.55],['Buyback announced at {T}',0.4],['Sector tailwind lifts {T}',0.32],
+    ['{T} faces margin pressure from costs',-0.45],['Regulatory probe weighs on {T}',-0.6],
+    ['Profit-taking hits {T} after run-up',-0.3],['Foreign outflows pressure {T}',-0.5]];
+  // bias the headline mix toward the trend so demo sentiment roughly tracks price action
+  const bull=t.drift>=0; const k=2+Math.floor(r()*6); const items=[];
+  for(let i=0;i<k;i++){let pick;const roll=r();
+    if(bull) pick = roll<0.7 ? tpl[Math.floor(r()*5)] : tpl[5+Math.floor(r()*4)];
+    else     pick = roll<0.7 ? tpl[5+Math.floor(r()*4)] : tpl[Math.floor(r()*5)];
+    const age=Math.floor(r()*72);
+    items.push({t:now-age*hr,title:pick[0].replace('{T}',t.sym),s:pick[1]+(r()*0.2-0.1)});}
+  return items.sort((a,b)=>b.t-a.t);}
+
+async function loadFeed(){
+  /* Reads ./data.json (written by your GitHub Action) from the same origin —
+     no API keys, no CORS. Shape:
+       { generatedAt: <ms>,
+         tickers: { "NVDA": { ohlc:[{t,o,h,l,c,v}...], headlines:[{t,title,s}...] }, ... } } */
+  try{
+    const r = await fetch('./data.json', {cache:'no-store'});
+    if(!r.ok) throw 0;
+    const d = await r.json();
+    if(d && d.tickers && Object.keys(d.tickers).length){
+      LIVE = d; LAST_UPDATED = d.generatedAt || null; DATA_MODE = 'live';
+      WATCHLIST = Object.keys(d.tickers).map(sym => ({sym, cls: classify(sym)})); // feed is source of truth
+      return true;
+    }
+  }catch(e){ /* no feed yet → stay in demo */ }
+  DATA_MODE = 'demo';
+  return false;
+}
+
+async function loadTicker(t){
+  if(DATA_MODE==='live' && LIVE && LIVE.tickers[t.sym]){
+    const e = LIVE.tickers[t.sym];
+    return { ohlc: e.ohlc, news: (e.headlines || e.news || []) };
+  }
+  return {ohlc:genOHLC(t),news:genNews(t)};
+}
+
+/* ---------- Sentiment + velocity ---------- */
+function sentiment(news){
+  const now=Date.now(),hr=3600000;
+  if(!news.length) return {avg:0,recent:0,base:0,state:'quiet',takeProfit:false,n:0};
+  const avg=news.reduce((s,x)=>s+x.s,0)/news.length;
+  const recent=news.filter(x=>now-x.t<=24*hr).length;           // last 24h
+  const prior=news.filter(x=>{const a=(now-x.t)/hr;return a>24&&a<=72;}).length; // prior 48h window
+  const base=prior/2;                                           // per-24h baseline
+  const accel = base>0 ? recent/base : (recent>=2?3:recent);    // coverage velocity
+  let state='quiet',tp=false;
+  if(accel>=2.2 && recent>=2){ state = avg>=0 ? 'blown' : 'blown'; tp = avg>=0; }   // spike → news is out
+  else if(avg>=0.12 && recent>=1 && accel>=1){ state='early'; }                      // positive + light, rising
+  else if(avg>=0.12){ state='building'; }
+  else { state='quiet'; }
+  return {avg,recent,base,accel,state,takeProfit:tp,n:news.length};
+}
+
+/* ---------- Cross-sectional momentum rank ---------- */
+function buildRanks(rows){
+  const mo = rows.map(r=>({sym:r.sym, m:r.mom})).filter(x=>x.m!=null).sort((a,b)=>b.m-a.m);
+  const n=mo.length; const rank={};
+  mo.forEach((x,i)=>{rank[x.sym]={place:i+1, pct: n>1 ? 1-(i/(n-1)) : 1, total:n};});
+  return rank;
+}
+
+/* ---------- Signal engine ---------- */
+const W = {trend:0.30, rsi:0.20, macd:0.10, vol:0.10, sent:0.20, rank:0.10}; // weights, sum=1
+
+function evalTicker(t,data){
+  const c=data.ohlc.map(b=>b.c), h=data.ohlc.map(b=>b.h), l=data.ohlc.map(b=>b.l);
+  const i=c.length-1;
+  const s50=sma(c,50), s200=sma(c,200), r=rsi(c,14), mk=macd(c), bb=bollinger(c,20,2), at=atr(h,l,c,14), mom=roc(c,60);
+  const price=c[i], prev=c[i-1], a=at[i]||price*0.02;
+  const sent=sentiment(data.news);
+
+  // --- factor contributions in [-1,1] ---
+  let fTrend;
+  if(price>s50[i] && s50[i]>s200[i]) fTrend=1;
+  else if(price>s50[i]) fTrend=0.5;
+  else if(s50[i] && price<s50[i] && s50[i]<s200[i]) fTrend=-1;
+  else fTrend=-0.5;
+
+  const rv=r[i];
+  let fRsi;
+  if(rv>=45&&rv<=60) fRsi=1;            // healthy pullback/continuation zone for a long
+  else if(rv>40&&rv<45) fRsi=0.5;
+  else if(rv>60&&rv<=68) fRsi=0.4;      // strong but extending
+  else if(rv>68) fRsi=-0.5;             // overbought = poor entry
+  else if(rv>=32&&rv<=40) fRsi=0.1;     // weak
+  else fRsi=-0.3;                       // <32 deep weakness (in a downtrend, risky)
+
+  const fMacd = (mk.line[i]!=null&&mk.sig[i]!=null) ? (mk.line[i]>mk.sig[i] ? (mk.hist[i]>(mk.hist[i-1]??mk.hist[i])?1:0.5) : -0.6) : 0;
+
+  const pctB = (bb.up[i]!=null) ? (price-bb.lo[i])/(bb.up[i]-bb.lo[i]) : 0.5;
+  let fVol;
+  if(pctB>1) fVol=-0.7;                 // stretched above upper band = chasing
+  else if(pctB>=0.45&&pctB<=0.85) fVol=0.5; // room to run
+  else if(pctB<0) fVol=0.1;             // below lower band (oversold) – mild for long-only
+  else fVol=0;
+
+  let fSent = Math.max(-1,Math.min(1, sent.avg*1.4));
+  if(sent.state==='early') fSent = Math.min(1, fSent+0.35);     // reward being early
+  if(sent.state==='blown') fSent = sent.avg>=0 ? -0.2 : -0.7;   // priced-in / bad news = don't chase
+
+  return {sym:t.sym, cls:t.cls, price, prev, chgPct:(price/prev-1)*100, atr:a,
+    rsi:rv, macdState:(mk.line[i]>mk.sig[i]?'bull':'bear'), trendUp:price>s50[i], golden:s50[i]>s200[i],
+    pctB, sent, mom:mom[i],
+    f:{trend:fTrend, rsi:fRsi, macd:fMacd, vol:fVol, sent:fSent},
+    arrs:{c,s50,r,mk,at}};
+}
+
+function scoreAndPlan(ev, rankInfo){
+  const f=ev.f;
+  const rankContrib = rankInfo ? (rankInfo.pct-0.5)*2*0.6 + 0.2 : 0; // top→+, bottom→-
+  const parts = {
+    trend: f.trend*W.trend,
+    rsi:   f.rsi*W.rsi,
+    macd:  f.macd*W.macd,
+    vol:   f.vol*W.vol,
+    sent:  f.sent*W.sent,
+    rank:  Math.max(-1,Math.min(1,rankContrib))*W.rank,
+  };
+  let composite = Object.values(parts).reduce((s,x)=>s+x,0);
+  composite = Math.max(-1,Math.min(1,composite));
+
+  // classify
+  let sig;
+  if(composite>=0.34) sig='BUY';
+  else if(composite>=0.12) sig='WATCH';
+  else if(composite>=-0.1) sig='HOLD';
+  else sig='AVOID';
+
+  // RULE: don't fight weak relative strength — bottom-tier momentum caps at HOLD
+  const weakRS = rankInfo && rankInfo.pct < 0.25;
+  if(weakRS && (sig==='BUY'||sig==='WATCH')) sig='HOLD';
+  // RULE: news already blown up + you're not in → don't initiate; flag take-profit if held
+  if(ev.sent.state==='blown' && ev.sent.takeProfit && (sig==='BUY'||sig==='WATCH')) sig='HOLD';
+
+  // ATR trade plan, fixed 2:1 reward:risk
+  const entry=ev.price, stop=entry-1.5*ev.atr, target=entry+3.0*ev.atr;
+  const rr = (target-entry)/(entry-stop);              // = 2.0
+  const beWin = (entry-stop)/((entry-stop)+(target-entry)); // break-even win rate = 0.333
+
+  const conv = Math.round((composite+1)/2*100);         // 0..100 conviction
+  return {sig, composite, conv, parts, entry, stop, target, rr, beWin, weakRS};
+}
+
+/* ---------- Backtest (technical core only) ---------- */
+function backtest(arrs){
+  const {c,s50,r,mk,at}=arrs; const trades=[];
+  let inPos=false, entry=0, stop=0, target=0;
+  for(let i=1;i<c.length;i++){
+    if(s50[i]==null||r[i]==null||mk.line[i]==null||mk.sig[i]==null||at[i]==null) continue;
+    if(!inPos){
+      const crossUp = c[i]>s50[i] && c[i-1]<=(s50[i-1]??c[i-1]);
+      if(crossUp && r[i]<68 && mk.line[i]>mk.sig[i]){
+        inPos=true; entry=c[i]; const a=at[i]; stop=entry-1.5*a; target=entry+3.0*a;
+      }
+    } else {
+      let ex=null;
+      if(c[i]<=stop) ex=stop;
+      else if(c[i]>=target) ex=target;
+      else if(c[i]<s50[i]) ex=c[i];
+      if(ex!=null){ trades.push((ex-entry)/(entry-stop)); inPos=false; } // result in R units
+    }
+  }
+  const n=trades.length; if(!n) return {n:0};
+  const wins=trades.filter(x=>x>0);
+  const grossW=wins.reduce((s,x)=>s+x,0);
+  const grossL=Math.abs(trades.filter(x=>x<=0).reduce((s,x)=>s+x,0));
+  let cum=0,peak=0,dd=0; for(const x of trades){cum+=x;peak=Math.max(peak,cum);dd=Math.min(dd,cum-peak);}
+  return {n, win:wins.length/n, pf: grossL===0?Infinity:grossW/grossL,
+    exp: trades.reduce((s,x)=>s+x,0)/n, dd};
+}
+
+/* ---------- State + rendering ---------- */
+let MODEL=[];   // computed rows
+let RANKS={};
+let VIEW='signals';
+
+async function compute(){
+  const rows=[];
+  for(const t of WATCHLIST){
+    const data=await loadTicker(t);
+    const ev=evalTicker(t,data);
+    ev.bt=backtest(ev.arrs);
+    rows.push(ev);
+  }
+  RANKS=buildRanks(rows);
+  rows.forEach(ev=>{ ev.plan=scoreAndPlan(ev, RANKS[ev.sym]); ev.rank=RANKS[ev.sym]; });
+  MODEL=rows;
+}
+
+const fmtPx = (cls,v)=> cls==='IDX' ? Math.round(v).toLocaleString() : (v>=100?v.toFixed(2):v.toFixed(2));
+const sgn = x=> (x>=0?'+':'')+x.toFixed(2);
+
+function factorRow(label,val){
+  const pos=val>=0, w=Math.min(50,Math.abs(val)/0.30*50); // 0.30 ≈ full-scale per factor
+  const left = pos? 50 : 50-w;
+  return `<div class="frow"><div class="flab">${label}</div>
+    <div class="ftrack"><div class="fmid"></div>
+      <div class="fbar ${pos?'pos':'neg'}" style="left:${left}%;width:${w}%"></div></div>
+    <div class="fval ${pos?'p':'n'}">${sgn(val)}</div></div>`;
+}
+
+function sentBlurb(ev){
+  const s=ev.sent;
+  const tag = {early:'EARLY',building:'BUILDING',quiet:'QUIET',blown:'NEWS OUT'}[s.state];
+  const cls = {early:'early',building:'building',quiet:'quiet',blown:'blown'}[s.state];
+  let msg;
+  if(s.state==='early') msg=`Positive tone, coverage still <b>light and rising</b> — the kind of setup you want to be early on.`;
+  else if(s.state==='building') msg=`Net-positive headlines, coverage steady. Confirmation, not a catalyst.`;
+  else if(s.state==='blown') msg= s.avg>=0 ? `Coverage <b>spiking after a move</b> — likely priced in. Sell-the-news territory, don't chase.` : `Negative news <b>breaking hard</b> — stand aside.`;
+  else msg=`Quiet tape. No news edge right now.`;
+  return `<div class="sent"><span class="vtag ${cls}">${tag}</span>
+    <span class="stext">${msg} <span style="color:var(--faint)">· ${s.n} headlines · avg ${sgn(s.avg)}</span></span></div>`;
+}
+
+function card(ev){
+  const p=ev.plan, up=ev.chgPct>=0;
+  const bt=ev.bt;
+  const btHtml = bt.n>0 ? `
+    <div class="bt">
+      <div class="btc"><div class="k">Trades</div><div class="v">${bt.n}</div></div>
+      <div class="btc"><div class="k">Win&nbsp;rate</div><div class="v">${Math.round(bt.win*100)}%</div></div>
+      <div class="btc"><div class="k">Profit&nbsp;factor</div><div class="v">${bt.pf===Infinity?'∞':bt.pf.toFixed(2)}</div></div>
+      <div class="btc"><div class="k">Expectancy</div><div class="v">${sgn(bt.exp)}R</div></div>
+    </div>
+    <div class="btnote">Break-even win rate at 2:1 is just <b>33%</b> — so what matters is that expectancy is positive, not that the win rate is high. Max equity dip in this test: ${bt.dd.toFixed(1)}R. Technicals only, demo history.</div>`
+    : `<div class="btnote">Not enough completed trades in the test window to report stable stats.</div>`;
+
+  return `<div class="card">
+    <div class="top">
+      <div>
+        <div><span class="sym">${ev.sym}</span><span class="cls">${ev.cls}</span></div>
+        <div class="px"><b>${fmtPx(ev.cls,ev.price)}</b> <span class="chg ${up?'up':'dn'}">${sgn(ev.chgPct)}%</span></div>
+        <div class="rankpill">▲ Momentum #${ev.rank.place}/${ev.rank.total} · ${sgn(ev.mom)}% (60d)</div>
+      </div>
+      <div class="badge">
+        <span class="sig ${p.sig}">${p.sig}</span>
+        <div class="conv">conviction ${p.conv}/100</div>
+      </div>
+    </div>
+
+    <div class="factors">
+      ${factorRow('Trend', p.parts.trend)}
+      ${factorRow('RSI', p.parts.rsi)}
+      ${factorRow('MACD', p.parts.macd)}
+      ${factorRow('Volatility', p.parts.vol)}
+      ${factorRow('Sentiment', p.parts.sent)}
+      ${factorRow('Rel. strength', p.parts.rank)}
+    </div>
+
+    ${sentBlurb(ev)}
+
+    <div class="plan">
+      <div class="cell"><div class="k">Entry</div><div class="v">${fmtPx(ev.cls,p.entry)}</div></div>
+      <div class="cell stop"><div class="k">Stop</div><div class="v">${fmtPx(ev.cls,p.stop)}</div></div>
+      <div class="cell tgt"><div class="k">Target</div><div class="v">${fmtPx(ev.cls,p.target)}</div></div>
+      <div class="cell rr"><div class="k">R : R</div><div class="v">${p.rr.toFixed(1)}:1</div></div>
+    </div>
+
+    <div class="why">${whyText(ev,p)}</div>
+
+    <details class="more">
+      <summary><span class="car">▸</span> Backtest &amp; details</summary>
+      ${btHtml}
+      <button class="rmv" onclick="removeSym('${ev.sym}')">Remove from watchlist</button>
+    </details>
+  </div>`;
+}
+
+function whyText(ev,p){
+  const bits=[];
+  bits.push(ev.trendUp ? (ev.golden?`Uptrend intact (<b>price &gt; 50&nbsp;&amp; 200&nbsp;SMA</b>)`:`Above the <b>50&nbsp;SMA</b> but 200 not yet reclaimed`) : `Below the <b>50&nbsp;SMA</b> — trend is against a long`);
+  bits.push(`RSI <b>${ev.rsi.toFixed(0)}</b> ${ev.rsi>68?'(overbought — poor entry)':ev.rsi<40?'(weak)':'(constructive)'}`);
+  bits.push(`MACD <b>${ev.macdState==='bull'?'bullish':'bearish'}</b>`);
+  if(ev.pctB>1) bits.push(`price stretched <b>above the upper band</b>`);
+  if(p.weakRS) bits.push(`but <b>weak relative strength</b> caps this at HOLD — don't fight the rank`);
+  if(ev.sent.state==='early') bits.push(`news turning positive <b>early</b>`);
+  if(ev.sent.state==='blown'&&ev.sent.avg>=0) bits.push(`news already <b>priced in</b> — take profit, don't initiate`);
+  const verdict = p.sig==='BUY'?`Setup lines up for a long.`:p.sig==='WATCH'?`Close, but wait for cleaner confirmation.`:p.sig==='AVOID'?`Stand aside.`:`Nothing to do here yet.`;
+  return bits.join('. ')+'. <b>'+verdict+'</b>';
+}
+
+function rankCard(ev,i){
+  const pct=ev.rank.pct;
+  return `<div class="rk">
+    <div class="pos">${i+1}</div>
+    <div class="who"><div class="s">${ev.sym} <span style="font:600 10px var(--mono);color:var(--muted)">${ev.cls}</span></div>
+      <div class="m">${sgn(ev.mom)}% / 60d · ${ev.plan.sig}</div></div>
+    <div class="rkbar"><i style="width:${Math.max(4,pct*100)}%"></i></div>
+  </div>`;
+}
+
+function methodView(){
+  const wl = WATCHLIST.map(t=>t.sym).join(', ');
+  return `<div class="mc">
+    <h3>How a signal is built</h3>
+    <p>Each name gets a contribution from six factors, weighted and summed into one composite score from <code>-1</code> to <code>+1</code>. You can see every contribution on the card — that bar <i>is</i> the arithmetic.</p>
+    <p><b>Trend ×0.30</b> — price vs 50 &amp; 200 SMA. <b>RSI ×0.20</b> — rewards constructive pullback zones, penalizes overbought. <b>MACD ×0.10</b> — confirmation only (kept light so it doesn't double-count momentum with RSI). <b>Volatility ×0.10</b> — Bollinger %B, penalizes chasing stretched price. <b>Sentiment ×0.20</b> — headline tone × coverage velocity. <b>Relative strength ×0.10</b> — your cross-sectional momentum rank.</p>
+    <p><b>Two hard rules override the score:</b> bottom-quartile momentum caps a name at HOLD (don't fight weak relative strength), and a news spike after a run-up blocks a fresh entry (sell-the-news, don't chase).</p>
+    <h3><span class="n">R:R</span>The trade plan</h3>
+    <p>Stop is <code>1.5×ATR</code> below entry, target <code>3×ATR</code> above — a fixed <b>2:1</b>. That means break-even is a <b>33% win rate</b>, so the engine optimizes <b>expectancy</b>, never a vanity win-rate number.</p>
+  </div>
+  <div class="mc">
+    <h3>Watchlist</h3>
+    <p style="color:var(--ink)">${wl}</p>
+    <div class="wlrow">
+      <input id="addInput" placeholder="Add ticker — e.g. AMD or TLKM.JK" autocapitalize="characters" autocomplete="off">
+      <button onclick="addSym()">Add</button>
+    </div>
+    <p style="margin-top:10px">New tickers get demo data until you wire your feed. Tag <code>.JK</code> names are read as IDX automatically.</p>
+  </div>`;
+}
+
+function render(){
+  const app=document.getElementById('app');
+  if(VIEW==='signals'){
+    const order={BUY:0,WATCH:1,HOLD:2,AVOID:3};
+    const rows=[...MODEL].sort((a,b)=> order[a.plan.sig]-order[b.plan.sig] || b.plan.composite-a.plan.composite);
+    app.innerHTML = `<div class="lede">Long-only swing signals, strongest setups first. Tap a card for its backtest and the option to remove it.</div>`
+      + rows.map(card).join('');
+  } else if(VIEW==='ranking'){
+    const rows=[...MODEL].filter(r=>r.mom!=null).sort((a,b)=>b.mom-a.mom);
+    app.innerHTML = `<div class="lede">Cross-sectional momentum — 60-day relative strength across your watchlist. The engine won't issue a BUY against the bottom quartile.</div>`
+      + rows.map(rankCard).join('');
+  } else {
+    app.innerHTML = methodView();
+  }
+}
+
+/* ---------- Interactions ---------- */
+function saveWL(){ /* PERSIST: localStorage.setItem('ss_watchlist', JSON.stringify(WATCHLIST)); */ }
+window.removeSym = async function(sym){
+  WATCHLIST = WATCHLIST.filter(t=>t.sym!==sym); saveWL();
+  await compute(); render();
+};
+window.addSym = async function(){
+  const el=document.getElementById('addInput'); if(!el) return;
+  let v=el.value.trim().toUpperCase(); if(!v) return;
+  if(WATCHLIST.some(t=>t.sym===v)){ el.value=''; return; }
+  const cls = v.endsWith('.JK')?'IDX':(['GLD','SLV','NEM','GOLD','GDX','AEM','PAAS','WPM'].includes(v)?'Metal':'US');
+  const seed = Array.from(v).reduce((a,ch)=>a+ch.charCodeAt(0),0)*7+13;
+  const start = cls==='IDX'? 1000+seed%9000 : 30+seed%400;
+  const drift = cls==='IDX'? -0.0004 : (seed%3-1)*0.0006;
+  WATCHLIST.push({sym:v,cls,seed,start,drift,vol:0.012+(seed%14)/1000});
+  saveWL(); el.value='';
+  await compute(); VIEW='signals'; syncSeg(); render();
+};
+function syncSeg(){document.querySelectorAll('.seg button').forEach(b=>b.classList.toggle('on',b.dataset.view===VIEW));}
+document.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>{VIEW=b.dataset.view;syncSeg();render();}));
+document.getElementById('refreshBtn').addEventListener('click',async e=>{
+  const svg=e.currentTarget.querySelector('svg'); svg.style.transition='transform .6s'; svg.style.transform='rotate(360deg)';
+  setTimeout(()=>{svg.style.transition='none';svg.style.transform='none';},620);
+  await loadFeed(); setStatus(); await compute(); render();
+});
+
+function fmtAgo(ms){ if(!ms) return ''; const m=Math.round((Date.now()-ms)/60000); return m<1?'just now':(m<60?m+'m ago':Math.round(m/60)+'h ago'); }
+function setStatus(){
+  const live = DATA_MODE==='live';
+  document.getElementById('modeDot').className = 'dot' + (live?'':' demo');
+  document.getElementById('modeText').textContent = live ? ('LIVE · '+fmtAgo(LAST_UPDATED)) : 'DEMO DATA';
+}
+(async function init(){
+  await loadFeed();
+  setStatus();
+  await compute(); render();
+})();
+</script>
+</body>
+</html>
